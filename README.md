@@ -1,4 +1,4 @@
-# Graded-Assignment-on-MERN-Application-with-Grafana-and-Prometheus
+# MERN-Application-with-Grafana-and-Prometheus
 Assignment Tasks:
 
 1. MERN Application Setup:
@@ -13,7 +13,7 @@ Assignment Tasks:
 
 3. Enhance Grafana Dashboards:
 
-   - Create advanced Grafana dashboards to display both the default and custom metrics from the MERN application.
+   - Create advanced Grafana dashboards to display the MERN application's default and custom metrics.
 
    - Include detailed visualizations for backend performance, database health, and frontend performance (if possible).
 
@@ -27,7 +27,7 @@ Assignment Tasks:
 
    - Set up distributed tracing in the application using tools like Jaeger or Zipkin.
 
-   - Integrate tracing data into Grafana for a full view of request flows through the application stack.
+   - Integrate tracking data into Grafana for a full view of request flows through the application stack.
 
 6. Alerting and Anomaly Detection:
 
@@ -39,7 +39,7 @@ Assignment Tasks:
 
    - Document the entire setup process, including challenges and how they were addressed.
 
-   - Provide an analysis of the application performance and behavior based on the collected metrics, logs, and traces.
+   - Provide an analysis of the application performance and behaviour based on the collected metrics, logs, and traces.
 
    - Include screenshots and explanations of the Grafana dashboards.
 
