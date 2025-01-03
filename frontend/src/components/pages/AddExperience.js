@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { baseUrl } from "../../url";
 import axios from "axios";
+import { trace } from '@opentelemetry/api';
 
 export default function AddExperience() {
     const [formdata, setFormdata] = useState({
@@ -17,8 +18,17 @@ export default function AddExperience() {
             shortDescription: ""
     })
     const submitForm = () => {
-        console.log(formdata)
+      const tracer = trace.getTracer('travel-memory-react-app');
+      const span = tracer.startSpan('Add trip data');
+      // console.log(formdata)
+      try
+      {
         axios.post(`${baseUrl}/trip`, formdata)
+      } catch (error) {
+        span.recordException(error);
+      } finally {
+        span.end();
+      }
     }
 
   return (

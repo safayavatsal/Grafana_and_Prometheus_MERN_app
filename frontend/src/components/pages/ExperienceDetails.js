@@ -2,17 +2,27 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { baseUrl } from "../../url";
+import { trace } from '@opentelemetry/api';
 
 export default function ExperienceDetails(props) {
   const { id } = useParams()
   const [data, setData] = useState()
 
   useEffect(()=>{
-    axios.get(`${baseUrl}/trip/${id}`)
-    .then((res) => {
-      console.log(res.data)
-      setData(res.data)
-    })
+    const tracer = trace.getTracer('travel-memory-react-app');
+    const span = tracer.startSpan('fetch trip data by id');
+    try
+    {
+      axios.get(`${baseUrl}/trip/${id}`)
+      .then((res) => {
+        console.log(res.data)
+        setData(res.data)
+      })
+    } catch (error) {
+      span.recordException(error);
+    } finally {
+      span.end();
+    }
   },[id])
   if(data){
     return (

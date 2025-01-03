@@ -1,95 +1,87 @@
-const express = require('express')
-const cors = require('cors')
-require('dotenv').config()
-//const express = require('express');
-const promClient = require('prom-client');
-const mongoose = require('mongoose');
-// Create a Registry to register the metrics
-const register = new client.Registry();
+require('./tracing');
+const express = require('express');
+const promClient = require('prom-client'); // Metric Collection
+const { createLogger, transports } = require("winston");
+const LokiTransport = require("winston-loki");
+const cors = require('cors');
+const { trace } = require('@opentelemetry/api');
+require('dotenv').config();
+const options = {
+    transports: [
+      new LokiTransport({
+        labels: {
+            appName: 'Express node js'
+        },
+        host: "http://172.21.61.204:3100"
+      })
+    ]
+};
+const logger = createLogger(options);
 
 const app = express()
-PORT = process.env.PORT
+// Initialize Prometheus metrics
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+collectDefaultMetrics({ register: promClient.register });
+
 const conn = require('./conn')
 app.use(express.json())
 app.use(cors())
 
-const collectDefaultMetrics = promClient.collectDefaultMetrics;
-collectDefaultMetrics();
+const httpRequestDurationMicroseconds = new promClient.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in microseconds',
+    labelNames: ['method', 'route', 'statusCode'],
+    buckets: [0.1, 0.3, 0.5, 0.7, 1, 2, 3, 5, 10]
+});
 
+const httpRequestsTotal = new promClient.Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'route', 'statusCode']
+});
+
+const httpRequestsErrors = new promClient.Counter({
+    name: 'http_requests_errors_total',
+    help: 'Total number of HTTP requests resulting in errors',
+    labelNames: ['method', 'route']
+});
+
+app.use((req, res, next) => {
+    const tracer = trace.getTracer('travel-memory-backend-middleware');
+    const span = tracer.startSpan(`${req.method} ${req.path}`);
+    const start = Date.now();
+    res.on('finish', () => {
+        if (res.statusCode >= 400) {
+            httpRequestsErrors.labels(req.method, req.url).inc();
+        }
+        const duration = Date.now() - start;
+        httpRequestDurationMicroseconds.labels(req.method, req.url, res.statusCode).observe(duration / 1000);
+        span.end();
+    });
+    httpRequestsTotal.labels(req.method, req.url, res.statusCode).inc();
+    next();
+});
 
 const tripRoutes = require('./routes/trip.routes')
 
 app.use('/trip', tripRoutes) // http://localhost:3001/trip --> POST/GET/GET by ID
 
-// Add metric instances for API response times, request counts, and error rates
-const httpRequestDurationMicroseconds = new client.Histogram({
-  name: 'http_request_duration_microseconds',
-  help: 'Duration of HTTP requests in microseconds',
-  labelNames: ['method', 'route', 'code'],
-  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10]
-});
-
-const httpRequestsTotal = new client.Counter({
-  name: 'http_requests_total',
-  help: 'Total number of HTTP requests',
-  labelNames: ['method', 'route', 'code']
-});
-
-const httpRequestErrorsTotal = new client.Counter({
-  name: 'http_request_errors_total',
-  help: 'Total number of HTTP request errors',
-  labelNames: ['method', 'route', 'code']
-});
-
-app.use((req, res, next) => {
-  const end = httpRequestDurationMicroseconds.startTimer();
-  res.on('finish', () => {
-      end({ method: req.method, route: req.route.path, status: res.statusCode });
-  });
-  next();
-});
-
-// Metrics endpoint for Prometheus
-app.get('/metrics', (req, res) => {
-  res.set('Content-Type', promClient.register.contentType);
-  res.end(promClient.register.metrics());
-});
-
 app.get('/hello', (req,res)=>{
-    res.send('Hello World!')
+    const tracer = trace.getTracer('travel-memory-backend-route');
+    const span = tracer.startSpan('GET /hello');
+    logger.info('This is sample url for testing /hello');
+    span.end();
+    res.send('Hello World!');
 })
 
+// Expose metrics endpoint
+app.get('/metrics', async (req, res) => {
+    res.setHeader('Content-Type', promClient.register.contentType);
+    const metrics = await promClient.register.metrics();
+    res.send(metrics);
+});
+
+PORT = process.env.PORT
 app.listen(PORT, ()=>{
     console.log(`Server started at http://localhost:${PORT}`)
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// mongoose.connect(process.env.MONGO_URI, {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// }).then(() => {
-//   console.log('Connected to MongoDB');
-//   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// }).catch(err => console.log(err));

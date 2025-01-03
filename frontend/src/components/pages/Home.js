@@ -3,11 +3,23 @@ import Card from "../UIC/Card";
 import FeaturedCard from "../UIC/FeaturedCard";
 import axios from "axios";
 import { baseUrl } from "../../url";
+import { trace } from '@opentelemetry/api';
 
 export default function Home() {
   const [data, setData] = useState();
   useEffect(() => {
-    axios.get(`${baseUrl}/trip/`).then((res) => setData(res.data));
+    const tracer = trace.getTracer('travel-memory-react-app');
+    const span = tracer.startSpan('fetch trip data');
+    const fetchData = async () => {
+      try {
+        axios.get(`${baseUrl}/trip/`).then((res) => setData(res.data));
+      } catch (error) {
+        span.recordException(error);
+      } finally {
+        span.end();
+      }
+    }
+    fetchData();
   }, []);
   if (data) {
     return (
